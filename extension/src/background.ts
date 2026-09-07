@@ -31,8 +31,41 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     void getState().then(sendResponse);
     return true;
   }
+  if (msg?.type === "lookupStatus") {
+    void lookupStatus(String(msg.id)).then(sendResponse);
+    return true;
+  }
   return false;
 });
+
+async function lookupStatus(
+  id: string,
+): Promise<
+  | { ok: true; openCount: number; ignored: boolean; lastOpenAt: number | null }
+  | { ok: false; error: string }
+> {
+  const { baseUrl, token } = await getSettings();
+  const base = normalizeBaseUrl(baseUrl);
+  if (!base || !token) return { ok: false, error: "not configured" };
+  try {
+    const res = await fetch(`${base}/api/trackers/${encodeURIComponent(id)}`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return { ok: false, error: `server ${res.status}` };
+    const data = (await res.json()) as {
+      opens: Array<{ ts: number }>;
+      tracker: { ignored: boolean };
+    };
+    return {
+      ok: true,
+      openCount: data.opens.length,
+      ignored: data.tracker.ignored,
+      lastOpenAt: data.opens[0]?.ts ?? null,
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "network error" };
+  }
+}
 
 async function handleCreate(msg: CreateTrackerMsg): Promise<CreateTrackerResult> {
   const { baseUrl, token } = await getSettings();

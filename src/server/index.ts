@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
@@ -30,6 +30,27 @@ app.route("/", streamRoutes);
 // Static dashboard (built by `npm run build:dashboard` into dist/dashboard).
 const dashboardDir = "dist/dashboard";
 if (existsSync(dashboardDir)) {
+  // Explicit routes for PWA files so mime types / SW scope headers are correct.
+  app.get("/manifest.webmanifest", (c) => {
+    try {
+      const body = readFileSync(`${dashboardDir}/manifest.webmanifest`, "utf8");
+      return c.body(body, 200, { "Content-Type": "application/manifest+json" });
+    } catch {
+      return c.notFound();
+    }
+  });
+  app.get("/sw.js", (c) => {
+    try {
+      const body = readFileSync(`${dashboardDir}/sw.js`, "utf8");
+      return c.body(body, 200, {
+        "Content-Type": "text/javascript",
+        "Service-Worker-Allowed": "/",
+        "Cache-Control": "no-cache",
+      });
+    } catch {
+      return c.notFound();
+    }
+  });
   app.use("/", serveStatic({ path: `${dashboardDir}/index.html` }));
   app.use("/*", serveStatic({ root: `./${dashboardDir}` }));
 } else {

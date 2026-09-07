@@ -54,3 +54,8 @@ export type PingSettingsResult = {
   configured: boolean;
   trackingEnabled: boolean;
 };
+
+export type LookupStatusMsg = { type: "lookupStatus"; id: string };
+export type LookupStatusResult =
+  | { ok: true; openCount: number; ignored: boolean; lastOpenAt: number | null }
+  | { ok: false; error: string };

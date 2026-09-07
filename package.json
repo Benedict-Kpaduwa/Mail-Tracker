@@ -27,7 +27,10 @@
     "nodemailer": "^6.9.16"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
@@ -36,6 +39,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^6.4.17",
     "esbuild": "^0.24.2",
+    "sharp": "^0.35.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

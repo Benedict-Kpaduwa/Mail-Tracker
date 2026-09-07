@@ -5,8 +5,24 @@ Mailtrack-style open tracking for Gmail. Three pieces:
 | Piece | What it does |
 | --- | --- |
 | **Server** (`src/server`) | Serves the tracking pixel, logs opens, exposes an API + SSE stream, sends the optional email digest. SQLite storage. |
-| **Dashboard** (`src/dashboard`) | Web page listing tracked emails with open counts, timestamps, device/client, and live desktop notifications. |
-| **Chrome extension** (`extension`) | Injects the tracking pixel into Gmail's compose window right before you hit Send, and raises a desktop notification when an email is opened. |
+| **Dashboard** (`src/dashboard`) | Installable PWA listing tracked emails with Mailtrack-style ✓/✓✓ status, stats, live updates, and desktop notifications. Light/dark, phone-friendly. |
+| **Chrome extension** (`extension`) | Injects the tracking pixel into Gmail's compose window right before you hit Send, shows a ✓/✓✓ badge on opened messages in Gmail, and raises a desktop notification when an email is opened. |
+
+## Dashboard as a phone app (PWA)
+
+The dashboard is a Progressive Web App — installable, offline-capable shell, its
+own icon.
+
+- **Reach it from your phone:** open the server's public URL (your tunnel or
+  deploy URL) in the phone browser. Tip: `https://<host>/?token=<MAILTRACK_TOKEN>`
+  signs you in on first load, then strips the token from the URL.
+- **iOS Safari:** Share → *Add to Home Screen*.
+- **Android Chrome / desktop Chrome:** use the *Install* prompt (the ⬇︎ button in
+  the header, or the browser's install icon).
+- The service worker (`/sw.js`) caches only the app shell; the API and SSE stream
+  are always fetched live, so it never shows stale open data.
+- A quick `trycloudflare.com` tunnel URL changes on every restart — you'd
+  reinstall/re-point. Deploy for a stable install.
 
 ## How it works
 
@@ -133,10 +149,13 @@ update the extension's options to that URL.
 
 ```
 src/server/        Hono app: pixel route, tracker API, SSE, digest, SQLite
-src/dashboard/     static SPA (esbuild -> dist/dashboard)
-extension/src/     MV3 extension (esbuild -> extension/dist)
-scripts/           init (token/.env), tunnel helper, dashboard build
+src/dashboard/     PWA SPA + logo.svg + sw.js (esbuild -> dist/dashboard)
+extension/src/     MV3 extension: pixel injection + in-Gmail ✓/✓✓ badge
+scripts/           init, tunnel helper, dashboard build, icon rasteriser (sharp)
 ```
+
+The dashboard build generates `manifest.webmanifest` and PNG icons (from
+`src/dashboard/logo.svg` via `sharp`) into `dist/dashboard/icons/`.
 
 ## npm scripts
 

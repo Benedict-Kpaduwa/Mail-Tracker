@@ -11,6 +11,7 @@ import {
   getSettings,
   normalizeBaseUrl,
   type CreateTrackerResult,
+  type LookupStatusResult,
   type Settings,
 } from "./shared.js";
 
@@ -47,9 +48,15 @@ async function init(): Promise<void> {
     }
   });
 
-  const mo = new MutationObserver(() => scan());
+  let t: ReturnType<typeof setTimeout> | undefined;
+  const mo = new MutationObserver(() => {
+    scan();
+    clearTimeout(t);
+    t = setTimeout(annotateOpenThread, 350);
+  });
   mo.observe(document.body, { childList: true, subtree: true });
   scan();
+  annotateOpenThread();
 
   // Capture phase so we run before Gmail's own handler, but we do NOT
   // preventDefault — the send proceeds normally right after we inject.
@@ -200,4 +207,91 @@ function toast(text: string, color: string): void {
     "padding:8px 14px;font:13px system-ui,-apple-system,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.15)";
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3500);
+}
+
+/* ---------- Mailtrack-style checkmark on opened messages ---------- */
+
+const PIXEL_ID_RE = /\/px\/(mt[A-Za-z0-9_-]{6,40})\.gif/;
+const statusCache = new Map<string, { at: number; openCount: number; ignored: boolean }>();
+const STATUS_TTL = 15_000;
+
+function annotateOpenThread(): void {
+  const subj = document.querySelector<HTMLElement>("h2.hP");
+  if (!subj) return;
+  const main = document.querySelector<HTMLElement>('[role="main"]');
+  if (!main) return;
+
+  const match = main.innerHTML.match(PIXEL_ID_RE);
+  const id = match?.[1];
+  if (!id) {
+    subj.parentElement?.querySelector(".mt-thread-status")?.remove();
+    delete subj.dataset.mtId;
+    return;
+  }
+
+  const hasBadge = !!subj.parentElement?.querySelector(".mt-thread-status");
+  const cached = statusCache.get(id);
+  if (subj.dataset.mtId === id && hasBadge && cached && Date.now() - cached.at < STATUS_TTL) {
+    return;
+  }
+  subj.dataset.mtId = id;
+  void refreshThreadStatus(subj, id);
+}
+
+async function refreshThreadStatus(subj: HTMLElement, id: string): Promise<void> {
+  let st = statusCache.get(id);
+  if (!st || Date.now() - st.at >= STATUS_TTL) {
+    try {
+      const r = (await chrome.runtime.sendMessage({
+        type: "lookupStatus",
+        id,
+      })) as LookupStatusResult;
+      if (!r?.ok) return;
+      st = { at: Date.now(), openCount: r.openCount, ignored: r.ignored };
+      statusCache.set(id, st);
+    } catch {
+      return;
+    }
+  }
+  if (subj.dataset.mtId !== id) return; // navigated away
+  renderThreadBadge(subj, st);
+}
+
+function renderThreadBadge(
+  subj: HTMLElement,
+  st: { openCount: number; ignored: boolean },
+): void {
+  const host = subj.parentElement ?? subj;
+  host.querySelector(".mt-thread-status")?.remove();
+
+  const opened = st.openCount > 0 && !st.ignored;
+  const badge = document.createElement("span");
+  badge.className = "mt-thread-status";
+  badge.style.cssText =
+    "display:inline-flex;align-items:center;gap:5px;margin-left:10px;padding:2px 9px;" +
+    "border-radius:12px;font:600 12px/1 system-ui,-apple-system,sans-serif;vertical-align:middle;" +
+    (opened
+      ? "background:#dcfce7;color:#166534;"
+      : st.ignored
+        ? "background:#f1f3f4;color:#5f6368;"
+        : "background:#eef2ff;color:#4f46e5;");
+  badge.innerHTML =
+    (opened || st.ignored ? doubleCheckSvg() : singleCheckSvg()) +
+    `<span>${
+      st.ignored
+        ? "Ignored"
+        : opened
+          ? st.openCount > 1
+            ? `Opened ×${st.openCount}`
+            : "Opened"
+          : "Sent"
+    }</span>`;
+  subj.after(badge);
+}
+
+function singleCheckSvg(): string {
+  return '<svg width="16" height="11" viewBox="0 0 24 16" fill="none"><path d="M3 8.5 L8 13.5 L18 3" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+function doubleCheckSvg(): string {
+  return '<svg width="18" height="11" viewBox="0 0 24 16" fill="none"><path d="M1 8.5 L6 13.5 L16 3" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 8.5 L13 13.5 L23 3" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 }

@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
@@ -21,7 +21,27 @@ await esbuild.build({
   logLevel: "info",
 });
 
-cpSync(resolve(srcDir, "index.html"), resolve(outDir, "index.html"));
-cpSync(resolve(srcDir, "styles.css"), resolve(outDir, "styles.css"));
+for (const f of ["index.html", "styles.css", "logo.svg", "sw.js"]) {
+  cpSync(resolve(srcDir, f), resolve(outDir, f));
+}
+
+const manifest = {
+  name: "Mail Tracker",
+  short_name: "Tracker",
+  description: "See when your Gmail messages get opened.",
+  start_url: "/",
+  scope: "/",
+  display: "standalone",
+  background_color: "#0b0c10",
+  theme_color: "#4f46e5",
+  icons: [
+    { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+    { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+    { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+  ],
+};
+writeFileSync(resolve(outDir, "manifest.webmanifest"), JSON.stringify(manifest, null, 2));
+
+await import("./build-icons.mjs");
 
 console.log(`dashboard -> ${outDir}`);

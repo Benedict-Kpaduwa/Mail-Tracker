@@ -2,62 +2,89 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Mail Tracker</title>
-    <link rel="stylesheet" href="styles.css" />
+    <meta name="description" content="See when your Gmail messages get opened." />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mail Tracker" />
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <header>
-      <h1>Mail Tracker</h1>
-      <div class="right">
-        <span id="conn" class="pill" title="live connection">offline</span>
-        <button id="notifyBtn" class="ghost" hidden>Enable notifications</button>
-        <button id="signout" class="ghost">Sign out</button>
+    <header class="app-header">
+      <div class="brand">
+        <img src="/logo.svg" alt="" class="brand-mark" width="30" height="30" />
+        <span class="brand-name">Mail&nbsp;Tracker</span>
+      </div>
+      <div class="header-actions">
+        <span id="conn" class="pill" title="Live connection status">
+          <span class="dot"></span><span class="pill-label">offline</span>
+        </span>
+        <button id="installBtn" class="icon-btn" title="Install app" hidden>⬇︎</button>
+        <button id="notifyBtn" class="icon-btn" title="Enable notifications" hidden>🔔</button>
+        <button id="themeBtn" class="icon-btn" title="Toggle theme">◐</button>
+        <button id="signout" class="btn ghost" hidden>Sign out</button>
       </div>
     </header>
 
-    <main>
-      <section id="gate" hidden>
-        <h2>Enter access token</h2>
+    <main class="wrap">
+      <section id="gate" class="gate" hidden>
+        <img src="/logo.svg" alt="" width="56" height="56" />
+        <h1>Mail Tracker</h1>
         <p class="muted">
-          The <code>MAILTRACK_TOKEN</code> from your <code>.env</code>. Stored in
-          this browser only.
+          Enter the <code>MAILTRACK_TOKEN</code> from your server's <code>.env</code>.
+          It's stored only in this browser.
         </p>
         <form id="gateForm">
-          <input id="tokenInput" type="password" placeholder="token" autocomplete="off" />
-          <button type="submit">Continue</button>
+          <input id="tokenInput" type="password" placeholder="Access token" autocomplete="off" />
+          <button type="submit" class="btn">Continue</button>
         </form>
         <p id="gateErr" class="err" hidden>That token was rejected.</p>
       </section>
 
       <section id="app" hidden>
+        <div class="stats" id="stats">
+          <div class="stat"><span class="stat-num" id="sTotal">0</span><span class="stat-label">Tracked</span></div>
+          <div class="stat"><span class="stat-num" id="sOpened">0</span><span class="stat-label">Opened</span></div>
+          <div class="stat"><span class="stat-num" id="sRate">0%</span><span class="stat-label">Open rate</span></div>
+          <div class="stat"><span class="stat-num" id="sToday">0</span><span class="stat-label">Opens today</span></div>
+        </div>
+
         <div class="toolbar">
           <input id="filter" type="search" placeholder="Filter by subject or recipient…" />
-          <button id="refresh" class="ghost">Refresh</button>
-          <button id="clearAll" class="ghost">Clear all</button>
+          <button id="refresh" class="btn ghost">Refresh</button>
+          <button id="clearAll" class="btn ghost danger">Clear all</button>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Status</th>
-              <th>Subject</th>
-              <th>Recipients</th>
-              <th>Sent</th>
-              <th class="num">Opens</th>
-              <th>Last open</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="rows"></tbody>
-        </table>
-        <p id="empty" class="muted" hidden>No tracked emails yet.</p>
+
+        <div class="table-card">
+          <table>
+            <thead>
+              <tr>
+                <th class="c-status">Status</th>
+                <th class="c-subject">Subject</th>
+                <th class="c-recips">Recipients</th>
+                <th class="c-sent">Sent</th>
+                <th class="c-opens num">Opens</th>
+                <th class="c-last">Last open</th>
+                <th class="c-del"></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <p id="empty" class="muted empty" hidden>No tracked emails yet. Send one from Gmail with the extension enabled.</p>
+        </div>
       </section>
     </main>
 
     <div id="detail" class="drawer" hidden>
       <div class="drawer-head">
         <strong id="dSubject"></strong>
-        <button id="dClose" class="ghost">Close</button>
+        <button id="dClose" class="icon-btn" title="Close">✕</button>
       </div>
       <div class="drawer-meta" id="dMeta"></div>
       <label class="ignore">
@@ -66,14 +93,15 @@
       <h3>Opens <span class="muted">(de-duplicated)</span></h3>
       <ul id="dOpens" class="events"></ul>
       <h3>Raw hits <span class="muted">(every pixel fetch)</span></h3>
-      <p class="muted" style="font-size:12px;margin:0 0 8px">
+      <p class="muted hint">
         Mail providers fetch the pixel many times per real open (prefetch, cache
         refresh). Hits within 15s of send, or within the dedupe window of a prior
-        open, are logged here but not counted.
+        open, are logged but not counted.
       </p>
       <ul id="dHits" class="events"></ul>
     </div>
+    <div id="scrim" class="scrim" hidden></div>
 
-    <script src="app.js"></script>
+    <script src="/app.js"></script>
   </body>
 </html>
