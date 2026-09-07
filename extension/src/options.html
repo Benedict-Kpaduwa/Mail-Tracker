@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mail Tracker — Options</title>
+    <style>
+      body {
+        font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        max-width: 520px;
+        margin: 40px auto;
+        padding: 0 20px;
+        color: #16181d;
+      }
+      h1 { font-size: 18px; }
+      label { display: block; margin: 16px 0 4px; font-weight: 600; }
+      input[type="text"], input[type="password"] {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 7px;
+        font: inherit;
+      }
+      .row { display: flex; gap: 10px; align-items: center; margin-top: 20px; }
+      button {
+        font: inherit;
+        padding: 8px 14px;
+        border-radius: 7px;
+        border: 1px solid #2563eb;
+        background: #2563eb;
+        color: #fff;
+        cursor: pointer;
+      }
+      button.ghost { background: transparent; color: #16181d; border-color: #d1d5db; }
+      .muted { color: #6b7280; font-size: 13px; }
+      #status { margin-top: 14px; font-weight: 600; }
+      .ok { color: #16a34a; }
+      .err { color: #dc2626; }
+      code { background: #eef0f3; padding: 1px 5px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>Mail Tracker</h1>
+    <p class="muted">
+      Point this at your tracking server. The token is the
+      <code>MAILTRACK_TOKEN</code> from its <code>.env</code>.
+    </p>
+
+    <label for="baseUrl">Server base URL</label>
+    <input id="baseUrl" type="text" placeholder="https://your-tunnel.trycloudflare.com" />
+
+    <label for="token">Access token</label>
+    <input id="token" type="password" placeholder="MAILTRACK_TOKEN" autocomplete="off" />
+
+    <label class="row" style="font-weight: 400">
+      <input type="checkbox" id="trackingEnabled" />
+      Turn tracking on by default in new compose windows
+    </label>
+
+    <div class="row">
+      <button id="save">Save</button>
+      <button id="test" class="ghost">Test connection</button>
+    </div>
+    <div id="status"></div>
+
+    <script src="options.js"></script>
+  </body>
+</html>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mail Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Mail Tracker</h1>
+      <div class="right">
+        <span id="conn" class="pill" title="live connection">offline</span>
+        <button id="notifyBtn" class="ghost" hidden>Enable notifications</button>
+        <button id="signout" class="ghost">Sign out</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="gate" hidden>
+        <h2>Enter access token</h2>
+        <p class="muted">
+          The <code>MAILTRACK_TOKEN</code> from your <code>.env</code>. Stored in
+          this browser only.
+        </p>
+        <form id="gateForm">
+          <input id="tokenInput" type="password" placeholder="token" autocomplete="off" />
+          <button type="submit">Continue</button>
+        </form>
+        <p id="gateErr" class="err" hidden>That token was rejected.</p>
+      </section>
+
+      <section id="app" hidden>
+        <div class="toolbar">
+          <input id="filter" type="search" placeholder="Filter by subject or recipient…" />
+          <button id="refresh" class="ghost">Refresh</button>
+          <button id="clearAll" class="ghost">Clear all</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Subject</th>
+              <th>Recipients</th>
+              <th>Sent</th>
+              <th class="num">Opens</th>
+              <th>Last open</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <p id="empty" class="muted" hidden>No tracked emails yet.</p>
+      </section>
+    </main>
+
+    <div id="detail" class="drawer" hidden>
+      <div class="drawer-head">
+        <strong id="dSubject"></strong>
+        <button id="dClose" class="ghost">Close</button>
+      </div>
+      <div class="drawer-meta" id="dMeta"></div>
+      <label class="ignore">
+        <input type="checkbox" id="dIgnore" /> Ignore opens for this email
+      </label>
+      <h3>Opens <span class="muted">(de-duplicated)</span></h3>
+      <ul id="dOpens" class="events"></ul>
+      <h3>Raw hits <span class="muted">(every pixel fetch)</span></h3>
+      <p class="muted" style="font-size:12px;margin:0 0 8px">
+        Mail providers fetch the pixel many times per real open (prefetch, cache
+        refresh). Hits within 15s of send, or within the dedupe window of a prior
+        open, are logged here but not counted.
+      </p>
+      <ul id="dHits" class="events"></ul>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

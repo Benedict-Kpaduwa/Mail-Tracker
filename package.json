@@ -1,0 +1,42 @@
+{
+  "name": "mail-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mailtrack-style open tracking for Gmail: tracking-pixel server, web dashboard, and a Chrome extension that injects the pixel into Gmail compose.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "init": "tsx scripts/init.ts",
+    "dev": "npm run build:dashboard && tsx watch src/server/index.ts",
+    "build": "npm run build:server && npm run build:dashboard && npm run build:extension",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:dashboard": "node scripts/build-dashboard.mjs",
+    "build:extension": "node extension/build.mjs",
+    "start": "node dist/server/index.js",
+    "tunnel": "tsx scripts/tunnel.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^16.4.7",
+    "hono": "^4.6.14",
+    "nanoid": "^5.0.9",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.16"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/chrome": "^0.0.287",
+    "@types/node": "^22.10.2",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^6.4.17",
+    "esbuild": "^0.24.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

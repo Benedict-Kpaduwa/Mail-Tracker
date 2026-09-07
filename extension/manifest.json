@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Mail Tracker for Gmail",
+  "version": "0.1.0",
+  "description": "Adds an open-tracking pixel to your Gmail messages and notifies you when they are read.",
+  "permissions": ["storage", "notifications", "alarms"],
+  "host_permissions": ["https://mail.google.com/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "action": { "default_title": "Mail Tracker" },
+  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" }
+}
