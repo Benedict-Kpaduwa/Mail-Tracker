@@ -70,6 +70,28 @@ test("create → open → the count shows up in the list", async () => {
   assert.equal(trackers.find((t) => t.id === id)?.openCount, 1);
 });
 
+test("the list is ordered by most recent activity (last open, else sent)", async () => {
+  const proxy = { "user-agent": "Mozilla/5.0 (GoogleImageProxy)" };
+  const now = Date.now();
+
+  // A: sent long ago, opened just now  -> should end up first
+  const a = (await (await createTracker({ id: "mtorderaaaaaa", subject: "A", recipients: ["a@x.com"], sentAt: now - 3_600_000 })).json()) as { id: string };
+  // B: sent recently, never opened
+  const b = (await (await createTracker({ id: "mtorderbbbbbb", subject: "B", recipients: ["b@x.com"], sentAt: now - 120_000 })).json()) as { id: string };
+  // C: sent a while ago, never opened
+  await createTracker({ id: "mtordercccccc", subject: "C", recipients: ["c@x.com"], sentAt: now - 600_000 });
+
+  await app.request(`/px/${a.id}.gif`, { headers: proxy });
+  await tick();
+
+  const { trackers } = (await (await app.request("/api/trackers", { headers: AUTH })).json()) as {
+    trackers: Array<{ id: string }>;
+  };
+  const order = trackers.map((t) => t.id);
+  assert.equal(order.indexOf("mtorderaaaaaa") < order.indexOf("mtorderbbbbbb"), true, "opened A before unopened B");
+  assert.equal(order.indexOf("mtorderbbbbbb") < order.indexOf("mtordercccccc"), true, "newer-sent B before older-sent C");
+});
+
 test("a client-supplied id is honoured and is idempotent", async () => {
   const id = "mtclientsuppliedid1";
   const first = await createTracker({ id, subject: "x", recipients: ["a@b.com"] });

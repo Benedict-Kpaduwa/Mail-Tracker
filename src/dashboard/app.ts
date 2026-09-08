@@ -94,15 +94,19 @@ function renderStats(): void {
 }
 
 /* ---------- table ---------- */
+/** Most recent activity: last open if opened, otherwise sent time. */
+const activityAt = (t: Tracker) => Math.max(t.lastOpenAt ?? 0, t.sentAt);
+
 function render(): void {
   const q = $<HTMLInputElement>("filter").value.trim().toLowerCase();
-  const list = q
-    ? trackers.filter(
-        (t) =>
-          t.subject.toLowerCase().includes(q) ||
-          t.recipients.some((r) => r.toLowerCase().includes(q)),
-      )
-    : trackers;
+  const list = [...trackers]
+    .sort((a, b) => activityAt(b) - activityAt(a))
+    .filter(
+      (t) =>
+        !q ||
+        t.subject.toLowerCase().includes(q) ||
+        t.recipients.some((r) => r.toLowerCase().includes(q)),
+    );
 
   $("empty").hidden = list.length > 0;
   $("rows").innerHTML = list
@@ -171,8 +175,7 @@ function onOpenEvent(e: {
     t.openCount = e.openCount;
     t.lastOpenAt = Date.now();
     if (!t.firstOpenAt) t.firstOpenAt = t.lastOpenAt;
-    trackers = [t, ...trackers.filter((x) => x.id !== t.id)];
-    render();
+    render(); // re-sorts: newest activity to the top
     document.querySelector(`tr[data-id="${e.trackerId}"]`)?.classList.add("row-flash");
   } else {
     void load();

@@ -81,7 +81,8 @@ trackerRoutes.get("/api/trackers", (c) => {
          FROM trackers t
          LEFT JOIN opens o ON o.tracker_id = t.id
         GROUP BY t.id
-        ORDER BY t.sent_at DESC
+        -- most recent activity first: last open, or sent time if never opened
+        ORDER BY COALESCE(last_open_at, t.sent_at) DESC
         LIMIT ?`,
     )
     .all(limit) as ListRow[];
