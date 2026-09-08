@@ -94,6 +94,16 @@ mkdir -p "$APP_DIR/data" "$APP_DIR/backups"
 chown -R "$RUN_USER:$RUN_USER" "$APP_DIR/data" "$APP_DIR/backups" "$APP_DIR/.env"
 
 # --- systemd service -------------------------------------------------------
+# If the checkout lives under /home, make its parent traversable by the service
+# user and skip ProtectHome (which would hide /home from the service entirely).
+PROTECT_HOME="ProtectHome=true"
+case "$APP_DIR" in
+  /home/*)
+    chmod o+x "$(dirname "$APP_DIR")" 2>/dev/null || true
+    PROTECT_HOME="ProtectHome=read-only"
+    ;;
+esac
+
 NODE_BIN="$(command -v node)"
 cat > /etc/systemd/system/mail-tracker.service <<EOF
 [Unit]
@@ -112,7 +122,7 @@ Restart=always
 RestartSec=3
 NoNewPrivileges=true
 ProtectSystem=strict
-ProtectHome=true
+$PROTECT_HOME
 PrivateTmp=true
 ReadWritePaths=$APP_DIR/data $APP_DIR/backups
 

@@ -1,5 +1,10 @@
 # Reference only — deploy/setup.sh generates the real unit at
 # /etc/systemd/system/mail-tracker.service with absolute paths filled in.
+#
+# NOTE: ProtectHome=true below assumes the app lives outside /home (e.g.
+# /opt/mail-tracker). If the checkout is under /home, setup.sh instead emits
+# ProtectHome=read-only and makes the parent dir traversable, otherwise the
+# service can't chdir into its own directory (status=200/CHDIR).
 
 [Unit]
 Description=Mail Tracker
