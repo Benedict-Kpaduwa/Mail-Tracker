@@ -131,6 +131,45 @@ branch restrictions under **Settings → Environments**.
 Edit `~/mail-tracker/.env` (`DIGEST_ENABLED=true`, `DIGEST_TO`, `SMTP_USER`,
 `SMTP_PASS` = a Gmail App Password), then `sudo systemctl restart mail-tracker`.
 
+### Logs & monitoring
+
+Everything runs under systemd, so logs are in the journal.
+
+```bash
+# app
+journalctl -u mail-tracker -f                 # live tail
+journalctl -u mail-tracker -n 100 --no-pager  # last 100 lines
+journalctl -u mail-tracker --since "1 hour ago"
+journalctl -u mail-tracker -p warning         # warnings + errors only
+journalctl -u mail-tracker | grep -i error
+
+# caddy (HTTPS / cert / 502s)
+journalctl -u caddy -f
+journalctl -u caddy --since today | grep -iE "error|certificate|obtain"
+```
+
+The app logs one line per HTTP request (`--> GET /px/<id>.gif 200 1ms`) plus the
+startup banner, `[digest] …`, and `[pixel] recordHit failed:` on errors.
+
+Quick liveness check (works from anywhere): `curl -s https://<host>/healthz`.
+
+From your laptop without an interactive session:
+
+```bash
+ssh -i <key>.pem ubuntu@<host> 'journalctl -u mail-tracker -n 50 --no-pager'
+```
+
+Deploy logs live in GitHub → repo → **Actions** tab.
+
+Journal size is auto-capped. To inspect / tighten:
+
+```bash
+journalctl --disk-usage
+sudo mkdir -p /etc/systemd/journald.conf.d
+printf '[Journal]\nSystemMaxUse=200M\n' | sudo tee /etc/systemd/journald.conf.d/cap.conf
+sudo systemctl restart systemd-journald
+```
+
 ## Cost
 
 - **Lightsail:** flat $5/mo, first 3 months free.
