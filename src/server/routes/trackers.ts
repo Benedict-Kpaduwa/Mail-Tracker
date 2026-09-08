@@ -164,12 +164,8 @@ trackerRoutes.patch("/api/trackers/:id", async (c) => {
   return c.json({ ok: true, ignored: body.ignored });
 });
 
-trackerRoutes.delete("/api/trackers/:id", (c) => {
-  const id = c.req.param("id");
-  const res = db().prepare("DELETE FROM trackers WHERE id = ?").run(id);
-  if (res.changes === 0) return c.json({ error: "not found" }, 404);
-  return c.json({ ok: true });
-});
+// Tracked emails are intentionally immutable — there is no delete endpoint.
+// Use PATCH { ignored: true } to exclude one from open counts.
 
 function safeParse(s: string): string[] {
   try {

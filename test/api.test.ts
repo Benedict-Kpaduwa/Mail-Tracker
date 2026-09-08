@@ -101,11 +101,13 @@ test("the ignore toggle stops opens counting", async () => {
   assert.equal((detail as { tracker: { ignored: boolean } }).tracker.ignored, true);
 });
 
-test("delete removes the tracker and its records", async () => {
+test("tracked emails cannot be deleted (no DELETE route)", async () => {
   const { id } = (await (
     await createTracker({ subject: "z", recipients: ["a@b.com"] })
   ).json()) as { id: string };
 
-  assert.equal((await app.request(`/api/trackers/${id}`, { method: "DELETE", headers: AUTH })).status, 200);
-  assert.equal((await app.request(`/api/trackers/${id}`, { headers: AUTH })).status, 404);
+  // No DELETE handler is registered, so Hono 404s the method+path.
+  assert.equal((await app.request(`/api/trackers/${id}`, { method: "DELETE", headers: AUTH })).status, 404);
+  // ...and the tracker is still there.
+  assert.equal((await app.request(`/api/trackers/${id}`, { headers: AUTH })).status, 200);
 });

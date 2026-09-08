@@ -114,7 +114,6 @@ function render(): void {
         <td data-c="sent" data-extra="${esc(fmtRel(t.lastOpenAt))}">${esc(fmtRel(t.sentAt))}</td>
         <td data-c="opens" class="num">${t.openCount}</td>
         <td data-c="last">${esc(fmtRel(t.lastOpenAt))}</td>
-        <td data-c="del"><button class="del-btn" data-del="${t.id}" title="Delete">✕</button></td>
       </tr>`,
     )
     .join("");
@@ -211,15 +210,21 @@ async function openDetail(id: string): Promise<void> {
   const t = data.tracker;
   const openCount = data.opens.length;
   const firstOpenAt = openCount ? data.opens[data.opens.length - 1]!.ts : null;
+  const lastOpenAt = openCount ? data.opens[0]!.ts : null;
 
   $("dSubject").textContent = t.subject || "(no subject)";
+
+  const metaRow = (k: string, v: string) =>
+    `<div class="meta-row"><dt>${k}</dt><dd>${v}</dd></div>`;
   $("dMeta").innerHTML =
-    `To ${esc(t.recipients.join(", ") || "—")}<br>` +
-    `Sent ${esc(fmtAbs(t.sentAt))}<br>` +
-    `<strong>${openCount}</strong> open${openCount === 1 ? "" : "s"} · ${data.hits.length} raw hit${
-      data.hits.length === 1 ? "" : "s"
-    }` +
-    (firstOpenAt ? `<br>First open ${esc(fmtAbs(firstOpenAt))}` : "");
+    metaRow("Status", statusCell({ ...t, openCount, lastOpenAt, firstOpenAt })) +
+    metaRow("To", esc(t.recipients.join(", ") || "—")) +
+    metaRow("Sent", esc(fmtAbs(t.sentAt))) +
+    (openCount
+      ? metaRow("First open", esc(fmtAbs(firstOpenAt!))) +
+        metaRow("Last open", `${esc(fmtAbs(lastOpenAt!))} · ${esc(fmtRel(lastOpenAt))}`)
+      : "");
+  $("dHitCount").textContent = `(${data.hits.length})`;
   ($("dIgnore") as HTMLInputElement).checked = t.ignored;
 
   $("dOpens").innerHTML =
@@ -297,27 +302,9 @@ $("signout").addEventListener("click", () => {
 $("refresh").addEventListener("click", () => void load());
 $("filter").addEventListener("input", render);
 
-$("rows").addEventListener("click", async (e) => {
-  const target = e.target as HTMLElement;
-  const delId = target.dataset.del;
-  if (delId) {
-    e.stopPropagation();
-    if (!confirm("Delete this tracked email and its open records?")) return;
-    await api(`/api/trackers/${delId}`, { method: "DELETE" });
-    trackers = trackers.filter((t) => t.id !== delId);
-    render();
-    return;
-  }
-  const tr = target.closest("tr");
+$("rows").addEventListener("click", (e) => {
+  const tr = (e.target as HTMLElement).closest("tr");
   if (tr?.dataset.id) void openDetail(tr.dataset.id);
-});
-
-$("clearAll").addEventListener("click", async () => {
-  if (!trackers.length) return;
-  if (!confirm(`Delete ALL ${trackers.length} tracked emails? This cannot be undone.`)) return;
-  await Promise.all(trackers.map((t) => api(`/api/trackers/${t.id}`, { method: "DELETE" })));
-  trackers = [];
-  render();
 });
 
 $("dClose").addEventListener("click", closeDrawer);

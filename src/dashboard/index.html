@@ -58,7 +58,6 @@
         <div class="toolbar">
           <input id="filter" type="search" placeholder="Filter by subject or recipient…" />
           <button id="refresh" class="btn ghost">Refresh</button>
-          <button id="clearAll" class="btn ghost danger">Clear all</button>
         </div>
 
         <div class="table-card">
@@ -71,7 +70,6 @@
                 <th class="c-sent">Sent</th>
                 <th class="c-opens num">Opens</th>
                 <th class="c-last">Last open</th>
-                <th class="c-del"></th>
               </tr>
             </thead>
             <tbody id="rows"></tbody>
@@ -81,24 +79,29 @@
       </section>
     </main>
 
-    <div id="detail" class="drawer" hidden>
-      <div class="drawer-head">
+    <div id="detail" class="drawer" hidden role="dialog" aria-modal="true" aria-labelledby="dSubject">
+      <header class="drawer-head">
+        <button id="dClose" class="drawer-close" aria-label="Close">✕</button>
         <strong id="dSubject"></strong>
-        <button id="dClose" class="icon-btn" title="Close">✕</button>
+      </header>
+      <div class="drawer-body">
+        <dl class="drawer-meta" id="dMeta"></dl>
+        <label class="ignore">
+          <input type="checkbox" id="dIgnore" />
+          <span>Ignore opens for this email</span>
+        </label>
+        <h3>Opens <span class="muted">(de-duplicated)</span></h3>
+        <ul id="dOpens" class="events"></ul>
+        <details class="raw">
+          <summary>Raw pixel hits <span id="dHitCount" class="muted"></span></summary>
+          <p class="muted hint">
+            Mail providers fetch the pixel many times per real open (prefetch,
+            cache refresh). Hits within 15s of send, or within the dedupe window
+            of a prior open, are logged but not counted.
+          </p>
+          <ul id="dHits" class="events"></ul>
+        </details>
       </div>
-      <div class="drawer-meta" id="dMeta"></div>
-      <label class="ignore">
-        <input type="checkbox" id="dIgnore" /> Ignore opens for this email
-      </label>
-      <h3>Opens <span class="muted">(de-duplicated)</span></h3>
-      <ul id="dOpens" class="events"></ul>
-      <h3>Raw hits <span class="muted">(every pixel fetch)</span></h3>
-      <p class="muted hint">
-        Mail providers fetch the pixel many times per real open (prefetch, cache
-        refresh). Hits within 15s of send, or within the dedupe window of a prior
-        open, are logged but not counted.
-      </p>
-      <ul id="dHits" class="events"></ul>
     </div>
     <div id="scrim" class="scrim" hidden></div>
 
