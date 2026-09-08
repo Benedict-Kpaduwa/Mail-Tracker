@@ -42,6 +42,13 @@ const manifest = {
 };
 writeFileSync(resolve(outDir, "manifest.webmanifest"), JSON.stringify(manifest, null, 2));
 
-await import("./build-icons.mjs");
+try {
+  await import("./build-icons.mjs");
+} catch (err) {
+  console.warn(
+    `[build-dashboard] icon rasterisation skipped (${err?.message ?? err}). ` +
+      "PWA install icons won't be generated, but the app still works. Install `sharp` to fix.",
+  );
+}
 
 console.log(`dashboard -> ${outDir}`);

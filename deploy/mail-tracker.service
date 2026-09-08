@@ -1,0 +1,25 @@
+# Reference only — deploy/setup.sh generates the real unit at
+# /etc/systemd/system/mail-tracker.service with absolute paths filled in.
+
+[Unit]
+Description=Mail Tracker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mailtrack
+Group=mailtrack
+WorkingDirectory=/opt/mail-tracker
+EnvironmentFile=/opt/mail-tracker/.env
+ExecStart=/usr/bin/node /opt/mail-tracker/dist/server/index.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/mail-tracker/data /opt/mail-tracker/backups
+
+[Install]
+WantedBy=multi-user.target

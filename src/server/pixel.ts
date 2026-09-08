@@ -40,12 +40,8 @@ export function recordHit({ trackerId, ip, ua }: RecordArgs): void {
     const info = parseUa(ua);
 
     if (!tracker) {
-      // Unknown id — still log the hit for debugging, but it can't be an open.
-      conn
-        .prepare(
-          "INSERT INTO hits (tracker_id, ts, ip, ua, client, device, is_proxy, counted) VALUES (?,?,?,?,?,?,?,0)",
-        )
-        .run(trackerId, now, ip, ua, info.client, info.device, info.isProxy ? 1 : 0);
+      // Unknown / deleted id (crafted URL, expired tracker). Nothing to record —
+      // `hits.tracker_id` has a foreign key, so there's nowhere to log it anyway.
       return;
     }
 

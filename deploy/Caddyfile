@@ -1,0 +1,8 @@
+# Reference only — deploy/setup.sh writes the real file to /etc/caddy/Caddyfile
+# with your hostname substituted in. Caddy gets + renews a Let's Encrypt cert
+# automatically (needs inbound ports 80 and 443 open).
+
+your-host.example.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8787
+}

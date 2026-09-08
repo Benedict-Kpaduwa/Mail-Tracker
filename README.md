@@ -132,18 +132,48 @@ SMTP_PASS=your-16-char-app-password
 
 Restart the server. Each run emails a summary of opens since the previous run.
 
-## Deployment (later)
+## CI/CD
 
-`Dockerfile` builds the server + dashboard and runs `dist/server/index.js`.
+`.github/workflows/ci.yml`:
+
+- **every push / PR** — `pnpm run typecheck`, `pnpm test` (Node `node:test` suite
+  in `test/`), `pnpm run build`, and a boot smoke-test of the built server. The
+  built Chrome extension is uploaded as a workflow artifact.
+- **push to `main`** — after the checks pass, deploys: rsyncs the repo to the AWS
+  box over SSH and runs `sudo SKIP_GIT=1 bash deploy/update.sh` (rebuild +
+  `systemctl restart`), then hits `/healthz` to confirm.
+
+Deploy needs repo secrets `DEPLOY_SSH_HOST`, `DEPLOY_SSH_KEY` (and optionally
+`DEPLOY_SSH_USER`, `DEPLOY_PATH`) — see [deploy/README.md](deploy/README.md#cicd-github-actions).
+Run `deploy/setup.sh` once by hand first; CI only does updates.
+
+Run the same checks locally: `pnpm run typecheck && pnpm test`.
+
+## Deployment
+
+### AWS (one small instance) — recommended, runs the code unchanged
+
+See **[deploy/README.md](deploy/README.md)**. Create an Ubuntu Lightsail/EC2 box,
+open ports 80 + 443, then:
+
+```bash
+git clone <repo> mail-tracker && cd mail-tracker
+sudo bash deploy/setup.sh            # or: sudo bash deploy/setup.sh your-host.com
+```
+
+That installs Node + pnpm + Caddy, builds, runs it as a `systemd` service behind
+Caddy (automatic HTTPS), and sets up hourly SQLite backups. With no hostname it
+uses `<public-ip>.sslip.io`. Update code later with `sudo bash deploy/update.sh`.
+
+### Docker (any host with a persistent volume)
 
 ```bash
 docker build -t mail-tracker .
 docker run -p 8787:8787 --env-file .env -v mailtrack-data:/app/data mail-tracker
 ```
 
-On Fly.io / Railway / Render: set the env vars, mount a volume at `/app/data`
-(or point `DB_PATH` at one), and set `BASE_URL` to the public HTTPS URL. Then
-update the extension's options to that URL.
+Set `BASE_URL` to the public HTTPS URL, mount a volume at `/app/data`, and put a
+TLS-terminating proxy in front. Then point the dashboard + extension at that URL.
 
 ## Project layout
 

@@ -4,11 +4,14 @@
   "private": true,
   "description": "Mailtrack-style open tracking for Gmail: tracking-pixel server, web dashboard, and a Chrome extension that injects the pixel into Gmail compose.",
   "type": "module",
+  "packageManager": "pnpm@10.23.0",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "init": "tsx scripts/init.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "test": "tsx --test test/*.test.ts",
     "dev": "npm run build:dashboard && tsx watch src/server/index.ts",
     "build": "npm run build:server && npm run build:dashboard && npm run build:extension",
     "build:server": "tsc -p tsconfig.server.json",

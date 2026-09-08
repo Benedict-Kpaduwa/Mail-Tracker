@@ -14,5 +14,5 @@
     "verbatimModuleSyntax": false,
     "noEmit": true
   },
-  "include": ["src", "scripts", "extension/src", "extension/build.mjs"]
+  "include": ["src", "scripts", "test", "extension/src", "extension/build.mjs"]
 }

@@ -31,6 +31,8 @@ export const config = {
   /** Public origin the pixel URL is built from. No trailing slash. */
   baseUrl: rawBase.replace(/\/+$/, ""),
   port: int("PORT", 8787),
+  /** Bind address. Behind a reverse proxy (Caddy/nginx) use 127.0.0.1. */
+  host: str("HOST", "0.0.0.0"),
   token: str("MAILTRACK_TOKEN", ""),
   dbPath: str("DB_PATH", "./data/mailtrack.db"),
   selfOpenWindowSec: int("SELF_OPEN_WINDOW_SEC", 15),

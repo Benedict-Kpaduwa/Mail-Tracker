@@ -64,8 +64,8 @@ if (existsSync(dashboardDir)) {
 
 startDigestScheduler();
 
-serve({ fetch: app.fetch, port: config.port }, (info) => {
-  console.log(`mail-tracker listening on http://localhost:${info.port}`);
+serve({ fetch: app.fetch, port: config.port, hostname: config.host }, (info) => {
+  console.log(`mail-tracker listening on http://${config.host}:${info.port}`);
   console.log(`  pixel base:   ${config.baseUrl}/px/<id>.gif`);
   console.log(`  dashboard:    http://localhost:${info.port}/`);
   if (config.baseUrl.includes("localhost")) {
