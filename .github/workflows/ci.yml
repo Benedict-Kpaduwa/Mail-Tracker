@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
   workflow_dispatch:
 
@@ -64,7 +64,8 @@ jobs:
     name: Deploy to AWS
     needs: verify
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' &&
+        (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
       github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production
