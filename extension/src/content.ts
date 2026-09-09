@@ -10,9 +10,13 @@
 import {
   getSettings,
   normalizeBaseUrl,
+  type ActivityItem,
   type CreateTrackerResult,
+  type GetActivityResult,
+  type GetTrackersResult,
   type LookupStatusResult,
   type Settings,
+  type TrackerSummary,
 } from "./shared.js";
 
 const SEND_SELECTOR =
@@ -52,11 +56,15 @@ async function init(): Promise<void> {
   const mo = new MutationObserver(() => {
     scan();
     clearTimeout(t);
-    t = setTimeout(annotateOpenThread, 350);
+    t = setTimeout(() => {
+      annotateOpenThread();
+      annotateListRows();
+    }, 350);
   });
   mo.observe(document.body, { childList: true, subtree: true });
   scan();
   annotateOpenThread();
+  mountActivityPanel();
 
   // Capture phase so we run before Gmail's own handler, but we do NOT
   // preventDefault — the send proceeds normally right after we inject.
@@ -289,9 +297,216 @@ function renderThreadBadge(
   subj.after(badge);
 }
 
-function singleCheckSvg(): string {
-  return '<svg width="16" height="11" viewBox="0 0 24 16" fill="none"><path d="M3 8.5 L8 13.5 L18 3" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function singleCheckSvg(w = 16): string {
+  return `<svg width="${w}" height="${Math.round((w * 11) / 16)}" viewBox="0 0 24 16" fill="none"><path d="M3 8.5 L8 13.5 L18 3" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
-function doubleCheckSvg(): string {
-  return '<svg width="18" height="11" viewBox="0 0 24 16" fill="none"><path d="M1 8.5 L6 13.5 L16 3" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 8.5 L13 13.5 L23 3" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function doubleCheckSvg(w = 18): string {
+  return `<svg width="${w}" height="${Math.round((w * 11) / 18)}" viewBox="0 0 24 16" fill="none"><path d="M1 8.5 L6 13.5 L16 3" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 8.5 L13 13.5 L23 3" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function relTime(ts: number): string {
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 45) return "just now";
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
+
+/* ---------- shared tracker list cache ---------- */
+
+let trackerCache: { at: number; list: TrackerSummary[] } | null = null;
+const TRACKER_TTL = 45_000;
+
+async function getTrackerList(force = false): Promise<TrackerSummary[]> {
+  if (!force && trackerCache && Date.now() - trackerCache.at < TRACKER_TTL) {
+    return trackerCache.list;
+  }
+  try {
+    const r = (await chrome.runtime.sendMessage({ type: "getTrackers" })) as GetTrackersResult;
+    if (!r?.ok) return trackerCache?.list ?? [];
+    trackerCache = { at: Date.now(), list: r.trackers };
+    return r.trackers;
+  } catch {
+    return trackerCache?.list ?? [];
+  }
+}
+
+/* ---------- Sent-list row markers + hover tooltip ---------- */
+
+const normSubject = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/^\s*(re|fwd|fw)\s*:\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+function annotateListRows(): void {
+  const rows = document.querySelectorAll<HTMLElement>("tr.zA");
+  if (!rows.length) return;
+
+  void getTrackerList().then((list) => {
+    if (!list.length) return;
+    const bySubject = new Map<string, TrackerSummary[]>();
+    for (const t of list) {
+      if (t.ignored) continue;
+      const k = normSubject(t.subject);
+      let arr = bySubject.get(k);
+      if (!arr) bySubject.set(k, (arr = []));
+      arr.push(t);
+    }
+
+    for (const row of rows) {
+      const subjEl = row.querySelector<HTMLElement>("span.bog");
+      const subject = (subjEl?.textContent ?? "").trim();
+      if (!subjEl || !subject) continue;
+      if (row.dataset.mtRowSubj === subject) continue; // same content, already handled
+      row.dataset.mtRowSubj = subject;
+      row.querySelector(".mt-row-mark")?.remove();
+
+      const candidates = bySubject.get(normSubject(subject));
+      if (!candidates || !candidates.length) continue;
+
+      const rowEmail = row
+        .querySelector<HTMLElement>("[email]")
+        ?.getAttribute("email")
+        ?.toLowerCase();
+      const narrowed = rowEmail
+        ? candidates.filter((t) => t.recipients.some((r) => r.toLowerCase() === rowEmail))
+        : candidates;
+      const pool = narrowed.length ? narrowed : candidates;
+      const t = pool.reduce((a, b) => (b.sentAt > a.sentAt ? b : a));
+
+      const host = subjEl.closest<HTMLElement>(".y6") ?? subjEl.parentElement;
+      host?.insertBefore(buildRowMark(t), host.firstChild);
+    }
+  });
+}
+
+function buildRowMark(t: TrackerSummary): HTMLElement {
+  const opened = t.openCount > 0;
+  const mark = document.createElement("span");
+  mark.className = "mt-row-mark";
+  mark.style.cssText =
+    "display:inline-flex;align-items:center;margin-right:6px;vertical-align:middle;cursor:default;" +
+    (opened ? "color:#16a34a;" : "color:#9aa0a6;");
+  mark.innerHTML = opened ? doubleCheckSvg(16) : singleCheckSvg(14);
+
+  const who = t.recipients[0] ?? "The recipient";
+  const label = opened
+    ? `${who} opened your email · ${relTime(t.lastOpenAt ?? t.sentAt)}` +
+      (t.openCount > 1 ? ` (${t.openCount}×)` : "")
+    : `${who} hasn't opened your email yet`;
+
+  mark.addEventListener("mouseenter", () => showTooltip(mark, label));
+  mark.addEventListener("mouseleave", hideTooltip);
+  return mark;
+}
+
+let tooltipEl: HTMLElement | null = null;
+function showTooltip(anchor: HTMLElement, text: string): void {
+  hideTooltip();
+  const r = anchor.getBoundingClientRect();
+  const tip = document.createElement("div");
+  tip.className = "mt-tooltip";
+  tip.textContent = text;
+  tip.style.cssText =
+    "position:fixed;z-index:100000;max-width:280px;background:#202124;color:#fff;" +
+    "font:12px/1.4 system-ui,-apple-system,sans-serif;padding:6px 10px;border-radius:6px;" +
+    "box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:none;";
+  tip.style.left = `${Math.min(r.left, window.innerWidth - 300)}px`;
+  tip.style.top = `${r.bottom + 6}px`;
+  document.body.appendChild(tip);
+  tooltipEl = tip;
+}
+function hideTooltip(): void {
+  tooltipEl?.remove();
+  tooltipEl = null;
+}
+
+/* ---------- in-Gmail activity panel ---------- */
+
+let activityTimer: ReturnType<typeof setInterval> | undefined;
+
+function mountActivityPanel(): void {
+  if (document.getElementById("mt-launcher")) return;
+
+  const launcher = document.createElement("button");
+  launcher.id = "mt-launcher";
+  launcher.title = "Mail Tracker — recent opens";
+  launcher.innerHTML = doubleCheckSvg(22);
+  launcher.style.cssText =
+    "position:fixed;right:18px;bottom:18px;z-index:99998;width:46px;height:46px;border-radius:50%;" +
+    "border:none;background:#4f46e5;color:#fff;display:flex;align-items:center;justify-content:center;" +
+    "cursor:pointer;box-shadow:0 6px 20px rgba(79,70,229,.45);";
+
+  const panel = document.createElement("div");
+  panel.id = "mt-panel";
+  panel.hidden = true;
+  panel.style.cssText =
+    "position:fixed;right:18px;bottom:74px;z-index:99998;width:320px;max-height:60vh;display:flex;" +
+    "flex-direction:column;background:#fff;color:#202124;border:1px solid #e0e0e0;border-radius:12px;" +
+    "box-shadow:0 12px 40px rgba(0,0,0,.22);font:13px/1.5 system-ui,-apple-system,sans-serif;overflow:hidden;";
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee">
+      <strong style="font-size:13px">Mail Tracker</strong>
+      <button id="mt-panel-dash" style="font:inherit;font-weight:600;border:1px solid #dadce0;background:#fff;color:#202124;border-radius:7px;padding:5px 10px;cursor:pointer">Dashboard ↗</button>
+    </div>
+    <div id="mt-panel-body" style="padding:6px 0;overflow-y:auto;flex:1"></div>`;
+
+  document.body.append(launcher, panel);
+
+  launcher.addEventListener("click", () => {
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) {
+      void refreshActivity();
+      activityTimer = setInterval(() => void refreshActivity(), 30_000);
+    } else if (activityTimer) {
+      clearInterval(activityTimer);
+      activityTimer = undefined;
+    }
+  });
+
+  panel.querySelector("#mt-panel-dash")!.addEventListener("click", () => {
+    const base = normalizeBaseUrl(settings.baseUrl);
+    if (base) window.open(`${base}/${settings.token ? `?token=${encodeURIComponent(settings.token)}` : ""}`, "_blank");
+    else void chrome.runtime.openOptionsPage?.();
+  });
+}
+
+async function refreshActivity(): Promise<void> {
+  const body = document.getElementById("mt-panel-body");
+  if (!body) return;
+  let res: GetActivityResult;
+  try {
+    res = (await chrome.runtime.sendMessage({ type: "getActivity" })) as GetActivityResult;
+  } catch {
+    return;
+  }
+  if (!res?.ok) {
+    body.innerHTML = `<div style="padding:16px 14px;color:#5f6368">Open the extension options to connect.</div>`;
+    return;
+  }
+  const items: ActivityItem[] = res.activity;
+  if (!items.length) {
+    body.innerHTML = `<div style="padding:16px 14px;color:#5f6368">No opens yet. Send a tracked email from Gmail.</div>`;
+    return;
+  }
+  body.innerHTML = items
+    .map((a) => {
+      const who = esc(a.recipient ?? "Someone");
+      const subj = esc(a.subject || "(no subject)");
+      return `<div style="padding:9px 14px;border-bottom:1px solid #f1f3f4">
+        <div><span style="color:#16a34a;vertical-align:middle;margin-right:5px">${doubleCheckSvg(15)}</span><strong>${who}</strong> opened your email</div>
+        <div style="color:#5f6368;font-size:12px;margin-top:1px">${subj} · ${relTime(a.ts)}</div>
+      </div>`;
+    })
+    .join("");
+}
+
+function esc(s: string): string {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
 }

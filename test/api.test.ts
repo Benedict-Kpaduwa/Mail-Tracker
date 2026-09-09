@@ -123,6 +123,28 @@ test("the ignore toggle stops opens counting", async () => {
   assert.equal((detail as { tracker: { ignored: boolean } }).tracker.ignored, true);
 });
 
+test("/api/activity returns recent opens with tracker context, newest first", async () => {
+  const proxy = { "user-agent": "Mozilla/5.0 (GoogleImageProxy)" };
+  const { id } = (await (
+    await createTracker({ subject: "Activity subject", recipients: ["dana@x.com"], sentAt: Date.now() - 60_000 })
+  ).json()) as { id: string };
+
+  await app.request(`/px/${id}.gif`, { headers: proxy });
+  await tick();
+
+  const res = await app.request("/api/activity?limit=5", { headers: AUTH });
+  assert.equal(res.status, 200);
+  const { activity } = (await res.json()) as {
+    activity: Array<{ trackerId: string; subject: string; recipient: string | null; ts: number }>;
+  };
+  const mine = activity.find((a) => a.trackerId === id);
+  assert.ok(mine, "the open shows up in activity");
+  assert.equal(mine!.subject, "Activity subject");
+  assert.equal(mine!.recipient, "dana@x.com");
+  // newest first
+  for (let i = 1; i < activity.length; i++) assert.ok(activity[i - 1]!.ts >= activity[i]!.ts);
+});
+
 test("tracked emails cannot be deleted (no DELETE route)", async () => {
   const { id } = (await (
     await createTracker({ subject: "z", recipients: ["a@b.com"] })

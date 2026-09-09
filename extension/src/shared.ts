@@ -59,3 +59,33 @@ export type LookupStatusMsg = { type: "lookupStatus"; id: string };
 export type LookupStatusResult =
   | { ok: true; openCount: number; ignored: boolean; lastOpenAt: number | null }
   | { ok: false; error: string };
+
+export type TrackerSummary = {
+  id: string;
+  subject: string;
+  recipients: string[];
+  sentAt: number;
+  ignored: boolean;
+  openCount: number;
+  firstOpenAt: number | null;
+  lastOpenAt: number | null;
+};
+
+export type ActivityItem = {
+  trackerId: string;
+  ts: number;
+  client: string | null;
+  device: string | null;
+  subject: string;
+  recipient: string | null;
+};
+
+export type GetTrackersMsg = { type: "getTrackers" };
+export type GetTrackersResult =
+  | { ok: true; trackers: TrackerSummary[] }
+  | { ok: false; error: string };
+
+export type GetActivityMsg = { type: "getActivity" };
+export type GetActivityResult =
+  | { ok: true; activity: ActivityItem[]; baseUrl: string }
+  | { ok: false; error: string };

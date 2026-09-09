@@ -3,9 +3,13 @@ import {
   getSettings,
   normalizeBaseUrl,
   setLocal,
+  type ActivityItem,
   type CreateTrackerMsg,
   type CreateTrackerResult,
+  type GetActivityResult,
+  type GetTrackersResult,
   type PingSettingsResult,
+  type TrackerSummary,
 } from "./shared.js";
 
 const POLL_ALARM = "mailtrack-poll";
@@ -35,8 +39,39 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     void lookupStatus(String(msg.id)).then(sendResponse);
     return true;
   }
+  if (msg?.type === "getTrackers") {
+    void getTrackers().then(sendResponse);
+    return true;
+  }
+  if (msg?.type === "getActivity") {
+    void getActivity().then(sendResponse);
+    return true;
+  }
   return false;
 });
+
+async function apiGet<T>(path: string): Promise<{ ok: true; data: T; base: string } | { ok: false; error: string }> {
+  const { baseUrl, token } = await getSettings();
+  const base = normalizeBaseUrl(baseUrl);
+  if (!base || !token) return { ok: false, error: "not configured" };
+  try {
+    const res = await fetch(`${base}${path}`, { headers: { authorization: `Bearer ${token}` } });
+    if (!res.ok) return { ok: false, error: `server ${res.status}` };
+    return { ok: true, data: (await res.json()) as T, base };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "network error" };
+  }
+}
+
+async function getTrackers(): Promise<GetTrackersResult> {
+  const r = await apiGet<{ trackers: TrackerSummary[] }>("/api/trackers?limit=500");
+  return r.ok ? { ok: true, trackers: r.data.trackers } : { ok: false, error: r.error };
+}
+
+async function getActivity(): Promise<GetActivityResult> {
+  const r = await apiGet<{ activity: ActivityItem[] }>("/api/activity?limit=40");
+  return r.ok ? { ok: true, activity: r.data.activity, baseUrl: r.base } : { ok: false, error: r.error };
+}
 
 async function lookupStatus(
   id: string,

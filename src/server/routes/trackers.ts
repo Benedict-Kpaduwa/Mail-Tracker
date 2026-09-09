@@ -102,6 +102,41 @@ trackerRoutes.get("/api/trackers", (c) => {
   });
 });
 
+type ActivityRow = {
+  tracker_id: string;
+  ts: number;
+  client: string | null;
+  device: string | null;
+  subject: string;
+  recipients: string;
+};
+
+/** Recent counted opens across all trackers — feeds the in-Gmail activity panel. */
+trackerRoutes.get("/api/activity", (c) => {
+  const limit = Math.min(Number(c.req.query("limit") ?? 40) || 40, 200);
+  const rows = db()
+    .prepare(
+      `SELECT o.tracker_id, o.ts, o.client, o.device, t.subject, t.recipients
+         FROM opens o
+         JOIN trackers t ON t.id = o.tracker_id
+        WHERE t.ignored = 0
+        ORDER BY o.ts DESC
+        LIMIT ?`,
+    )
+    .all(limit) as ActivityRow[];
+
+  return c.json({
+    activity: rows.map((r) => ({
+      trackerId: r.tracker_id,
+      ts: r.ts,
+      client: r.client,
+      device: r.device,
+      subject: r.subject,
+      recipient: safeParse(r.recipients)[0] ?? null,
+    })),
+  });
+});
+
 trackerRoutes.get("/api/trackers/:id", (c) => {
   const id = c.req.param("id");
   const t = db().prepare("SELECT * FROM trackers WHERE id = ?").get(id) as
