@@ -428,6 +428,7 @@ function hideTooltip(): void {
 /* ---------- in-Gmail activity panel ---------- */
 
 let activityTimer: ReturnType<typeof setInterval> | undefined;
+let panelOpen = false;
 
 function mountActivityPanel(): void {
   if (document.getElementById("mt-launcher")) return;
@@ -439,13 +440,13 @@ function mountActivityPanel(): void {
   launcher.style.cssText =
     "position:fixed;right:18px;bottom:18px;z-index:99998;width:46px;height:46px;border-radius:50%;" +
     "border:none;background:#4f46e5;color:#fff;display:flex;align-items:center;justify-content:center;" +
-    "cursor:pointer;box-shadow:0 6px 20px rgba(79,70,229,.45);";
+    "cursor:pointer;box-shadow:0 6px 20px rgba(79,70,229,.45);transition:background .15s,transform .15s;";
 
   const panel = document.createElement("div");
   panel.id = "mt-panel";
-  panel.hidden = true;
+  // Starts closed. Toggle switches display between "none" and "flex".
   panel.style.cssText =
-    "position:fixed;right:18px;bottom:74px;z-index:99998;width:320px;max-height:60vh;display:flex;" +
+    "position:fixed;right:18px;bottom:74px;z-index:99998;width:320px;max-height:60vh;display:none;" +
     "flex-direction:column;background:#fff;color:#202124;border:1px solid #e0e0e0;border-radius:12px;" +
     "box-shadow:0 12px 40px rgba(0,0,0,.22);font:13px/1.5 system-ui,-apple-system,sans-serif;overflow:hidden;";
   panel.innerHTML = `
@@ -457,15 +458,27 @@ function mountActivityPanel(): void {
 
   document.body.append(launcher, panel);
 
-  launcher.addEventListener("click", () => {
-    panel.hidden = !panel.hidden;
-    if (!panel.hidden) {
+  const setOpen = (open: boolean) => {
+    panelOpen = open;
+    panel.style.display = open ? "flex" : "none";
+    launcher.style.background = open ? "#3730a3" : "#4f46e5";
+    launcher.style.transform = open ? "scale(0.94)" : "scale(1)";
+    if (open) {
       void refreshActivity();
       activityTimer = setInterval(() => void refreshActivity(), 30_000);
     } else if (activityTimer) {
       clearInterval(activityTimer);
       activityTimer = undefined;
     }
+  };
+
+  launcher.addEventListener("click", () => setOpen(!panelOpen));
+
+  // Click outside the panel (but not on the launcher) closes it.
+  document.addEventListener("click", (e) => {
+    if (!panelOpen) return;
+    const target = e.target as Node;
+    if (!panel.contains(target) && !launcher.contains(target)) setOpen(false);
   });
 
   panel.querySelector("#mt-panel-dash")!.addEventListener("click", () => {
