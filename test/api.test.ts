@@ -103,6 +103,45 @@ test("a client-supplied id is honoured and is idempotent", async () => {
   assert.equal(((await again.json()) as { id: string }).id, id);
 });
 
+test("a reported self-view suppresses and rolls back the sender's own open", async () => {
+  const proxy = { "user-agent": "Mozilla/5.0 (GoogleImageProxy)" };
+
+  // Case 1: self-view reported first -> the following open is not counted.
+  const a = (await (
+    await createTracker({ subject: "SV a", recipients: ["r@x.com"], sentAt: Date.now() - 60_000 })
+  ).json()) as { id: string };
+  const sv = await app.request(`/api/trackers/${a.id}/self-view`, { method: "POST", headers: AUTH });
+  assert.equal(sv.status, 200);
+  await app.request(`/px/${a.id}.gif`, { headers: proxy });
+  await tick();
+  let detail = (await (await app.request(`/api/trackers/${a.id}`, { headers: AUTH })).json()) as {
+    opens: unknown[];
+    hits: Array<{ counted: boolean }>;
+  };
+  assert.equal(detail.opens.length, 0, "open suppressed when self-view came first");
+  assert.equal(detail.hits.length, 1, "the pixel fetch is still logged as a raw hit");
+
+  // Case 2: open counted first, THEN self-view reported -> it's rolled back.
+  const b = (await (
+    await createTracker({ subject: "SV b", recipients: ["r@x.com"], sentAt: Date.now() - 60_000 })
+  ).json()) as { id: string };
+  await app.request(`/px/${b.id}.gif`, { headers: proxy });
+  await tick();
+  detail = (await (await app.request(`/api/trackers/${b.id}`, { headers: AUTH })).json()) as {
+    opens: unknown[];
+    hits: Array<{ counted: boolean }>;
+  };
+  assert.equal(detail.opens.length, 1, "open counted before the self-view report");
+
+  const roll = await app.request(`/api/trackers/${b.id}/self-view`, { method: "POST", headers: AUTH });
+  assert.equal(((await roll.json()) as { removed: number }).removed, 1);
+  detail = (await (await app.request(`/api/trackers/${b.id}`, { headers: AUTH })).json()) as {
+    opens: unknown[];
+    hits: Array<{ counted: boolean }>;
+  };
+  assert.equal(detail.opens.length, 0, "open rolled back after self-view report");
+});
+
 test("the ignore toggle stops opens counting", async () => {
   const { id } = (await (
     await createTracker({ subject: "y", recipients: ["a@b.com"], sentAt: Date.now() - 60_000 })

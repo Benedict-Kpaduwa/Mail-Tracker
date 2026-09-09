@@ -60,6 +60,9 @@ export type LookupStatusResult =
   | { ok: true; openCount: number; ignored: boolean; lastOpenAt: number | null }
   | { ok: false; error: string };
 
+/** Fired by the content script when the sender opens their own tracked mail. */
+export type SelfViewMsg = { type: "selfView"; id: string };
+
 export type TrackerSummary = {
   id: string;
   subject: string;

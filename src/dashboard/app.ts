@@ -157,6 +157,19 @@ function connectStream(): void {
     label.textContent = "live";
   });
   es.addEventListener("open", (ev) => onOpenEvent(JSON.parse((ev as MessageEvent).data)));
+  es.addEventListener("recount", (ev) => {
+    const e = JSON.parse((ev as MessageEvent).data) as { trackerId: string; openCount: number };
+    const t = trackers.find((x) => x.id === e.trackerId);
+    if (t) {
+      t.openCount = e.openCount;
+      if (e.openCount === 0) {
+        t.lastOpenAt = null;
+        t.firstOpenAt = null;
+      }
+      render();
+    }
+    if (!$("detail").hidden && detailId === e.trackerId) void openDetail(e.trackerId);
+  });
   es.onerror = () => {
     conn.classList.remove("live");
     label.textContent = "reconnecting";

@@ -37,6 +37,9 @@ export const config = {
   dbPath: str("DB_PATH", "./data/mailtrack.db"),
   selfOpenWindowSec: int("SELF_OPEN_WINDOW_SEC", 15),
   dedupeWindowSec: int("DEDUPE_WINDOW_SEC", 120),
+  // When the extension reports the sender viewing their own tracked mail, ignore
+  // (and retroactively drop) opens within this many seconds of that moment.
+  selfViewWindowSec: int("SELF_VIEW_WINDOW_SEC", 45),
   digest: {
     enabled: bool("DIGEST_ENABLED", false),
     cron: str("DIGEST_CRON", "0 8 * * *"),

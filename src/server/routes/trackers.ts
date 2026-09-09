@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
-import { db, type OpenRow, type HitRow, type TrackerRow } from "../db.js";
-import { pixelUrl } from "../pixel.js";
 import { requireAuth } from "../auth.js";
+import { config } from "../config.js";
+import { db, type OpenRow, type HitRow, type TrackerRow } from "../db.js";
+import { bus } from "../events.js";
+import { pixelUrl } from "../pixel.js";
 
 export const trackerRoutes = new Hono();
 
@@ -198,6 +200,39 @@ trackerRoutes.patch("/api/trackers/:id", async (c) => {
     .run(body.ignored ? 1 : 0, id);
   if (res.changes === 0) return c.json({ error: "not found" }, 404);
   return c.json({ ok: true, ignored: body.ignored });
+});
+
+/**
+ * The extension calls this when the sender opens their own tracked mail. Records
+ * the moment (so `recordHit` suppresses the matching proxy fetch) and undoes any
+ * open already counted in the last `selfViewWindowSec` seconds — covers the race
+ * where the pixel fetch landed before this report.
+ */
+trackerRoutes.post("/api/trackers/:id/self-view", (c) => {
+  const id = c.req.param("id");
+  const now = Date.now();
+  const since = now - config.selfViewWindowSec * 1000;
+
+  const upd = db()
+    .prepare("UPDATE trackers SET last_self_view_at = ? WHERE id = ?")
+    .run(now, id);
+  if (upd.changes === 0) return c.json({ error: "not found" }, 404);
+
+  const removed = db()
+    .prepare("DELETE FROM opens WHERE tracker_id = ? AND ts >= ?")
+    .run(id, since).changes;
+  if (removed > 0) {
+    db()
+      .prepare("UPDATE hits SET counted = 0 WHERE tracker_id = ? AND counted = 1 AND ts >= ?")
+      .run(id, since);
+  }
+
+  const { c: openCount } = db()
+    .prepare("SELECT COUNT(*) AS c FROM opens WHERE tracker_id = ?")
+    .get(id) as { c: number };
+
+  if (removed > 0) bus.emitRecount({ type: "recount", trackerId: id, openCount });
+  return c.json({ ok: true, removed, openCount });
 });
 
 // Tracked emails are intentionally immutable — there is no delete endpoint.

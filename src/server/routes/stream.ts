@@ -2,7 +2,11 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { tokenFrom } from "../auth.js";
 import { config } from "../config.js";
-import { bus, type OpenEvent } from "../events.js";
+import { bus, type OpenEvent, type RecountEvent } from "../events.js";
+
+type Queued =
+  | { event: "open"; data: OpenEvent }
+  | { event: "recount"; data: RecountEvent };
 
 export const streamRoutes = new Hono();
 
@@ -19,13 +23,21 @@ streamRoutes.get("/api/events/stream", (c) => {
 
   return streamSSE(c, async (stream) => {
     let running = true;
-    const queue: OpenEvent[] = [];
+    const queue: Queued[] = [];
     let wake: (() => void) | null = null;
 
-    const off = bus.onOpen((e) => {
-      queue.push(e);
+    const offOpen = bus.onOpen((data) => {
+      queue.push({ event: "open", data });
       wake?.();
     });
+    const offRecount = bus.onRecount((data) => {
+      queue.push({ event: "recount", data });
+      wake?.();
+    });
+    const off = () => {
+      offOpen();
+      offRecount();
+    };
     stream.onAbort(() => {
       running = false;
       wake?.();
@@ -36,8 +48,8 @@ streamRoutes.get("/api/events/stream", (c) => {
     try {
       while (running) {
         while (queue.length && running) {
-          const e = queue.shift()!;
-          await stream.writeSSE({ event: "open", data: JSON.stringify(e) });
+          const q = queue.shift()!;
+          await stream.writeSSE({ event: q.event, data: JSON.stringify(q.data) });
         }
         if (!running) break;
 

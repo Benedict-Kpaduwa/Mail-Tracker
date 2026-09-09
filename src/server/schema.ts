@@ -5,14 +5,15 @@
  */
 export const SCHEMA_SQL = /* sql */ `
 CREATE TABLE IF NOT EXISTS trackers (
-  id                TEXT PRIMARY KEY,
-  created_at        INTEGER NOT NULL,
-  subject           TEXT NOT NULL DEFAULT '',
-  recipients        TEXT NOT NULL DEFAULT '[]',
-  thread_id         TEXT,
-  gmail_message_id  TEXT,
-  sent_at           INTEGER NOT NULL,
-  ignored           INTEGER NOT NULL DEFAULT 0
+  id                 TEXT PRIMARY KEY,
+  created_at         INTEGER NOT NULL,
+  subject            TEXT NOT NULL DEFAULT '',
+  recipients         TEXT NOT NULL DEFAULT '[]',
+  thread_id          TEXT,
+  gmail_message_id   TEXT,
+  sent_at            INTEGER NOT NULL,
+  ignored            INTEGER NOT NULL DEFAULT 0,
+  last_self_view_at  INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS hits (
@@ -43,3 +44,11 @@ CREATE TABLE IF NOT EXISTS meta (
   value  TEXT NOT NULL
 );
 `;
+
+/**
+ * Additive migrations for databases created before a column existed. Each entry
+ * is run and any "duplicate column" error is ignored, so it's safe every boot.
+ */
+export const MIGRATIONS = [
+  "ALTER TABLE trackers ADD COLUMN last_self_view_at INTEGER",
+];

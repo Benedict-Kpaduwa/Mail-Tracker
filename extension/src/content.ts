@@ -237,13 +237,29 @@ function annotateOpenThread(): void {
     return;
   }
 
+  // The extension only runs in the sender's browser, so seeing a tracked thread
+  // open here means the sender is viewing their own mail — tell the server so it
+  // won't count that as a recipient open.
+  const isNewThread = subj.dataset.mtId !== id;
+
   const hasBadge = !!subj.parentElement?.querySelector(".mt-thread-status");
   const cached = statusCache.get(id);
   if (subj.dataset.mtId === id && hasBadge && cached && Date.now() - cached.at < STATUS_TTL) {
     return;
   }
   subj.dataset.mtId = id;
+  if (isNewThread) reportSelfView(id);
   void refreshThreadStatus(subj, id);
+}
+
+let selfViewReported = new Map<string, number>();
+function reportSelfView(id: string): void {
+  const now = Date.now();
+  const last = selfViewReported.get(id) ?? 0;
+  if (now - last < 15_000) return;
+  selfViewReported.set(id, now);
+  if (selfViewReported.size > 200) selfViewReported = new Map();
+  void chrome.runtime.sendMessage({ type: "selfView", id }).catch(() => {});
 }
 
 async function refreshThreadStatus(subj: HTMLElement, id: string): Promise<void> {

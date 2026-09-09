@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import Database from "better-sqlite3";
 import { config } from "./config.js";
-import { SCHEMA_SQL } from "./schema.js";
+import { MIGRATIONS, SCHEMA_SQL } from "./schema.js";
 
 export type TrackerRow = {
   id: string;
@@ -13,6 +13,7 @@ export type TrackerRow = {
   gmail_message_id: string | null;
   sent_at: number;
   ignored: number;
+  last_self_view_at: number | null;
 };
 
 export type OpenRow = {
@@ -46,6 +47,14 @@ export function db(): Database.Database {
   conn.pragma("journal_mode = WAL");
   conn.pragma("foreign_keys = ON");
   conn.exec(SCHEMA_SQL);
+  for (const sql of MIGRATIONS) {
+    try {
+      conn.exec(sql);
+    } catch (err) {
+      // "duplicate column name" means the migration already applied — ignore.
+      if (!/duplicate column/i.test(String((err as Error).message))) throw err;
+    }
+  }
   _db = conn;
   return conn;
 }

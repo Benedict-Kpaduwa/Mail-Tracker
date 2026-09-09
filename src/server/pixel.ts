@@ -48,6 +48,13 @@ export function recordHit({ trackerId, ip, ua }: RecordArgs): void {
     const withinSelfWindow =
       now - tracker.sent_at < config.selfOpenWindowSec * 1000;
 
+    // The extension reports when the sender views their own tracked mail; Gmail's
+    // image proxy fetch for that view is indistinguishable from a recipient's, so
+    // suppress opens near a reported self-view.
+    const nearSelfView =
+      tracker.last_self_view_at != null &&
+      now - tracker.last_self_view_at < config.selfViewWindowSec * 1000;
+
     const recentOpen = conn
       .prepare(
         "SELECT 1 FROM opens WHERE tracker_id = ? AND ts >= ? LIMIT 1",
@@ -56,7 +63,7 @@ export function recordHit({ trackerId, ip, ua }: RecordArgs): void {
 
     const scanner = info.device === "bot";
     const counted =
-      !tracker.ignored && !withinSelfWindow && !recentOpen && !scanner;
+      !tracker.ignored && !withinSelfWindow && !nearSelfView && !recentOpen && !scanner;
 
     const insertHit = conn.prepare(
       "INSERT INTO hits (tracker_id, ts, ip, ua, client, device, is_proxy, counted) VALUES (?,?,?,?,?,?,?,?)",

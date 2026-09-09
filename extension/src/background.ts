@@ -39,6 +39,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     void lookupStatus(String(msg.id)).then(sendResponse);
     return true;
   }
+  if (msg?.type === "selfView") {
+    void reportSelfView(String(msg.id)).then(sendResponse);
+    return true;
+  }
   if (msg?.type === "getTrackers") {
     void getTrackers().then(sendResponse);
     return true;
@@ -71,6 +75,21 @@ async function getTrackers(): Promise<GetTrackersResult> {
 async function getActivity(): Promise<GetActivityResult> {
   const r = await apiGet<{ activity: ActivityItem[] }>("/api/activity?limit=40");
   return r.ok ? { ok: true, activity: r.data.activity, baseUrl: r.base } : { ok: false, error: r.error };
+}
+
+async function reportSelfView(id: string): Promise<{ ok: boolean }> {
+  const { baseUrl, token } = await getSettings();
+  const base = normalizeBaseUrl(baseUrl);
+  if (!base || !token) return { ok: false };
+  try {
+    await fetch(`${base}/api/trackers/${encodeURIComponent(id)}/self-view`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
 }
 
 async function lookupStatus(
